@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ប្រព័ន្ធស្កេនវត្តមាន</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Kantumruy Pro', sans-serif; }
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .view { transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; }
+        .view.hidden { opacity: 0; transform: scale(0.95); pointer-events: none; position: absolute; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+        <div class="w-full max-w-md">
+
+            <div class="text-center mb-4">
+                <h1 class="text-2xl font-bold text-blue-700">ប្រព័ន្ធស្កេនវត្តមាន</h1>
+                <p id="clock" class="text-gray-500"></p>
+            </div>
+            
+            <div id="status-container"></div>
+            
+            <div class="bg-white p-6 rounded-2xl shadow-lg relative min-h-[300px]">
+                <div id="loading-view" class="view flex flex-col items-center justify-center absolute inset-0">
+                    <div class="spinner" style="width: 40px; height: 40px; border-width: 4px;"></div>
+                    <p id="loading-text" class="mt-4 text-gray-600">កំពុងទាញទិន្នន័យ...</p>
+                </div>
+
+                <div id="login-view" class="view hidden">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="nameInput" class="block text-sm font-medium text-gray-600 mb-1">ឈ្មោះ (Name)</label>
+                            <input type="text" id="nameInput" list="nameList" oninput="handleInput(this.value, 'name')" placeholder="វាយឈ្មោះ..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <datalist id="nameList"></datalist>
+                        </div>
+                        <div>
+                            <label for="idInput" class="block text-sm font-medium text-gray-600 mb-1">ID សិស្ស</label>
+                            <input type="text" id="idInput" list="idList" oninput="handleInput(this.value, 'id')" placeholder="វាយ ID..." class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <datalist id="idList"></datalist>
+                        </div>
+                        <div>
+                            <label for="classInput" class="block text-sm font-medium text-gray-600 mb-1">ថ្នាក់ (Class)</label>
+                            <input type="text" id="classInput" placeholder="ថ្នាក់នឹងបង្ហាញនៅទីនេះ" class="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg" disabled>
+                        </div>
+                    </div>
+                    <button id="loginButton" onclick="handleLogin()" class="w-full flex items-center justify-center bg-blue-600 text-white font-bold py-3 px-4 rounded-lg mt-6 hover:bg-blue-700 transition duration-300 disabled:opacity-50">
+                        <span class="button-text">ចូលគណនី</span>
+                        <div class="spinner ml-2" style="display: none;"></div>
+                    </button>
+                </div>
+
+                <div id="attendance-view" class="view hidden">
+                    <div class="text-center border-b pb-4 mb-4">
+                        <h2 class="text-xl font-bold" id="studentNameDisplay"></h2>
+                        <p class="text-gray-500" id="studentIdDisplay"></p>
+                        <p class="text-gray-500" id="studentClassDisplay"></p>
+                    </div>
+                    <div class="space-y-3">
+                        <button id="checkInButton" onclick="scan('checkin')" class="w-full flex items-center justify-center bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition duration-300 disabled:opacity-50">
+                            <span class="button-text">ស្កេនចូល (Check In)</span>
+                            <div class="spinner ml-2" style="display: none;"></div>
+                        </button>
+                        <button id="checkOutButton" onclick="scan('checkout')" class="w-full flex items-center justify-center bg-red-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50">
+                            <span class="button-text">ស្កេនចេញ (Check Out)</span>
+                            <div class="spinner ml-2" style="display: none;"></div>
+                        </button>
+                        <button onclick="logout()" class="w-full bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg mt-2 hover:bg-gray-300 transition duration-300">
+                            ត្រឡប់ក្រោយ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // ===================================================================
+    // CONFIGURATION - URL របស់ Web App ត្រូវបានដាក់เรียบร้อยแล้ว
+    // ===================================================================
+    const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzMOE0fhN9fTzuTjZqvrSX-PkiFaOx6pGzKBDo339DoqFPpb640D0oPgBHjsASjKGHlyA/exec';
+
+    // ===================================================================
+    // GLOBAL STATE
+    // ===================================================================
+    let globalStudentData = [];
+    let currentUser = null;
+
+    // ===================================================================
+    // API FUNCTIONS - ផ្នែកសម្រាប់ហៅទៅកាន់ Google Apps Script
+    // ===================================================================
+    async function callGoogleScript(action, payload = {}) {
+        try {
+            const response = await fetch(GAS_WEB_APP_URL, {
+                method: 'POST',
+                mode: 'cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action, payload })
+            });
+            const result = await response.json();
+            
+            if (!result.success) {
+                throw new Error(result.message || 'An unknown error occurred in Google Apps Script.');
+            }
+            return result;
+        } catch (error) {
+            console.error('Failed to call Google Script:', error);
+            throw error;
+        }
+    }
+
+    // ===================================================================
+    // INITIALIZATION & DATA HANDLING
+    // ===================================================================
+    window.addEventListener('load', () => {
+        startClock();
+        showView('loading-view');
+        
+        callGoogleScript('getStudentLoginData')
+            .then(result => {
+                onDataLoaded(result.data);
+            })
+            .catch(onDataError);
+    });
+
+    function onDataLoaded(data) {
+        if (!data || data.length === 0) {
+            showStatus("មិនអាចទាញទិន្នន័យសិស្សបានទេ។ សូមពិនិត្យ Backend Server។", false);
+            document.getElementById('loading-text').textContent = "បរាជ័យ";
+            return;
+        }
+        globalStudentData = data;
+        populateDatalists(data);
+        showView('login-view');
+    }
+
+    function onDataError(error) {
+        showStatus(`មានបញ្ហា: ${error.message}`, false);
+        document.getElementById('loading-text').textContent = "បរាជ័យ";
+    }
+
+    async function scan(scanType) {
+        const buttonId = (scanType === 'checkin') ? 'checkInButton' : 'checkOutButton';
+        toggleButtonSpinner(buttonId, true);
+        clearStatus();
+
+        try {
+            const location = await new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    return reject(new Error("កម្មវិធីបើកមើលរបស់អ្នកមិនគាំទ្រទីតាំងទេ។"));
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (position) => resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude }),
+                    (error) => {
+                        let msg = "មិនអាចទាញយកទីតាំងបានទេ: ";
+                        msg += (error.code == 1) ? "សូមអនុញ្ញាតអោយប្រើប្រាស់ទីតាំង។" : "មានបញ្ហាក្នុងការកំណត់ទីតាំង។";
+                        reject(new Error(msg));
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                );
+            });
+
+            const payload = { studentInfo: currentUser, scanType, location };
+            const result = await callGoogleScript('recordAttendance', payload);
+            
+            onScanResult(result, buttonId);
+
+        } catch (error) {
+            onScanError(error, buttonId);
+        }
+    }
+
+    // ===================================================================
+    // CORE & UI HELPER FUNCTIONS
+    // ===================================================================
+    function populateDatalists(data) {
+        const nameList = document.getElementById('nameList');
+        const idList = document.getElementById('idList');
+        nameList.innerHTML = '';
+        idList.innerHTML = '';
+        data.forEach(s => {
+            nameList.innerHTML += `<option value="${s.name}"></option>`;
+            idList.innerHTML += `<option value="${s.id}"></option>`;
+        });
+    }
+
+    function handleInput(value, type) {
+        if (!value) return;
+        const found = (type === 'name')
+            ? globalStudentData.find(s => s.name === value)
+            : globalStudentData.find(s => String(s.id) === String(value));
+
+        document.getElementById('nameInput').value = found ? found.name : (type === 'name' ? value : '');
+        document.getElementById('idInput').value = found ? found.id : (type === 'id' ? value : '');
+        document.getElementById('classInput').value = found ? found.class : '';
+    }
+    
+    function handleLogin() {
+        const id = document.getElementById('idInput').value;
+        const name = document.getElementById('nameInput').value;
+        if (!id || !name) {
+            showStatus("សូមបញ្ចូលឈ្មោះ និង ID អោយបានត្រឹមត្រូវ។", false);
+            return;
+        }
+        currentUser = globalStudentData.find(s => String(s.id) === String(id) && s.name === name);
+        if (currentUser) {
+            document.getElementById('studentNameDisplay').textContent = currentUser.name;
+            document.getElementById('studentIdDisplay').textContent = `ID: ${currentUser.id}`;
+            document.getElementById('studentClassDisplay').textContent = `ថ្នាក់: ${currentUser.class}`;
+            showView('attendance-view');
+            clearStatus();
+        } else {
+            showStatus("រកមិនឃើញសិស្សទេ។ សូមពិនិត្យ ID និង ឈ្មោះម្តងទៀត។", false);
+        }
+    }
+
+    function onScanResult(result, buttonId) {
+        showStatus(result.message, result.success);
+        toggleButtonSpinner(buttonId, false);
+    }
+
+    function onScanError(error, buttonId) {
+        showStatus(`មានបញ្ហា: ${error.message}`, false);
+        toggleButtonSpinner(buttonId, false);
+    }
+
+    function logout() {
+        currentUser = null;
+        document.getElementById('nameInput').value = '';
+        document.getElementById('idInput').value = '';
+        document.getElementById('classInput').value = '';
+        showView('login-view');
+        clearStatus();
+    }
+
+    function showView(viewId) {
+        document.querySelectorAll('.view').forEach(v => {
+            v.classList.add('hidden', 'absolute');
+        });
+        const viewToShow = document.getElementById(viewId);
+        if (viewToShow) {
+            viewToShow.classList.remove('hidden', 'absolute');
+        }
+    }
+
+    function showStatus(message, isSuccess) {
+        const statusContainer = document.getElementById('status-container');
+        const colorClasses = isSuccess 
+            ? 'bg-green-100 text-green-800' 
+            : 'bg-red-100 text-red-800';
+        statusContainer.innerHTML = `<div class="p-3 mb-4 rounded-lg text-center font-semibold ${colorClasses}">${message}</div>`;
+        
+        setTimeout(() => {
+             if (statusContainer.innerHTML.includes(message)) {
+                clearStatus();
+             }
+        }, 5000);
+    }
+
+    function clearStatus() {
+        document.getElementById('status-container').innerHTML = '';
+    }
+
+    function toggleButtonSpinner(buttonId, show) {
+        const button = document.getElementById(buttonId);
+        if (!button) return;
+        button.disabled = show;
+        button.querySelector('.button-text').style.display = show ? 'none' : 'inline';
+        button.querySelector('.spinner').style.display = show ? 'inline-block' : 'none';
+    }
+
+    function startClock() {
+        const clockElement = document.getElementById('clock');
+        function update() {
+            const now = new Date();
+            const days = ["អាទិត្យ", "ចន្ទ", "អង្គារ", "ពុធ", "ព្រហស្បតិ៍", "សុក្រ", "សៅរ៍"];
+            const day = days[now.getDay()];
+            const date = now.toLocaleDateString('km-KH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+            clockElement.textContent = `ថ្ងៃ${day}, ${date} - ${time}`;
+        }
+        update();
+        setInterval(update, 1000);
+    }
+</script>
+</body>
+</html>
